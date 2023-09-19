@@ -1,24 +1,39 @@
-import './App.css';
-import React from 'react';
+import React from "react"
+import { OktaAuth, toRelativeUrl } from "@okta/okta-auth-js"
+import config from "./config"
+import { Security } from "@okta/okta-react"
+import AppRouter from "./AppRouter"
+
+export const oktaAuth = new OktaAuth(config.oidc)
 
 function App() {
+  const [, setAuthNeededModalOpen] = React.useState(false)
+
+  const triggerLogin = async () => {
+    await oktaAuth.signInWithRedirect()
+  }
+
+  const restoreOriginalUri = async (_oktaAuth: any, originalUri: any) => {
+    window.location.replace(toRelativeUrl(originalUri || "/", window.location.origin))
+  }
+
+  const customAuthHandler = async () => {
+    const previousAuthState = oktaAuth.authStateManager.getPreviousAuthState()
+
+    if (!previousAuthState || !previousAuthState.isAuthenticated) {
+      // App initialization stage
+      await triggerLogin()
+    } else {
+      // Ask the user to trigger the login process during token autoRenew process
+      setAuthNeededModalOpen(true)
+    }
+  }
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
-  );
+    <Security oktaAuth={oktaAuth} onAuthRequired={customAuthHandler} restoreOriginalUri={restoreOriginalUri}>
+      <AppRouter />
+    </Security>
+  )
 }
 
-export default App;
+export default App
